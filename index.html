@@ -315,6 +315,7 @@
       clientId: '632f5684-1d22-452b-8eb0-8662eee53e1f',
       authority: 'https://login.microsoftonline.com/05d75c05-fa1a-42e7-9cf1-eb416c396f2d',
       redirectUri: window.location.origin + window.location.pathname,
+      postLogoutRedirectUri: window.location.origin + window.location.pathname,
     },
     cache: { cacheLocation: 'localStorage' },
   };
@@ -362,6 +363,11 @@
       }
       msalInstance.setActiveAccount(account);
       grantAccess(account);
+      // A tool page redirected here to sign in — send the user back to it now that we have a session.
+      const returnTo = new URLSearchParams(window.location.search).get('returnTo');
+      if (returnTo && returnTo.startsWith(window.location.origin)) {
+        window.location.replace(returnTo);
+      }
     } catch (err) {
       console.error('[SMART Hub auth]', err);
       showDenied('Access denied. This hub is restricted to APM Terminals Mobile staff. If you believe this is a mistake, contact your Strategy Team lead.');

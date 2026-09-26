@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>APM Terminals Mobile — Yard Strategy</title>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3/lib/msal-browser.min.js"></script>
 <script>
   (function(){
     try {
@@ -221,9 +222,74 @@ table.tbl tr:hover td{background:#fafbfd}
 .footer{padding:14px 22px 30px;color:var(--med);font-size:11px;display:flex;align-items:center;gap:14px}
 .footer img{height:22px;opacity:.9}
 @media(max-width:960px){.main{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+
+/* ── ENTRA ID AUTH GATE — see index.html for the full explanation ── */
+.auth-gate{position:fixed;inset:0;z-index:9999;background:#3C3C46;display:flex;align-items:center;justify-content:center;padding:1.5rem;transition:opacity .25s ease}
+.auth-gate.done{opacity:0;pointer-events:none}
+.auth-gate-inner{text-align:center;font-family:inherit}
+.auth-gate-spinner{width:34px;height:34px;margin:0 auto 1.25rem;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:#FF6441;animation:auth-spin .8s linear infinite}
+.auth-gate.denied .auth-gate-spinner{display:none}
+@keyframes auth-spin{to{transform:rotate(360deg)}}
+#auth-gate-text{font-size:13px;color:#AAB4C3;max-width:320px;line-height:1.5}
+.sign-out-btn{margin-left:8px;padding:6px 12px;border-radius:6px;border:1px solid var(--line,rgba(0,0,0,.15));background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.sign-out-btn:hover{border-color:#FF6441;color:#FF6441}
 </style>
 </head>
 <body>
+
+<div class="auth-gate" id="auth-gate">
+  <div class="auth-gate-inner">
+    <div class="auth-gate-spinner"></div>
+    <div id="auth-gate-text">Signing in with your Maersk account&hellip;</div>
+  </div>
+</div>
+<script>
+(function () {
+  const msalConfig = {
+    auth: {
+      clientId: '632f5684-1d22-452b-8eb0-8662eee53e1f',
+      authority: 'https://login.microsoftonline.com/05d75c05-fa1a-42e7-9cf1-eb416c396f2d',
+      redirectUri: 'https://strategy-team-al.github.io/smarthub/',
+      postLogoutRedirectUri: 'https://strategy-team-al.github.io/smarthub/',
+    },
+    cache: { cacheLocation: 'localStorage' },
+  };
+  const msalInstance = new msal.PublicClientApplication(msalConfig);
+  const authGate = document.getElementById('auth-gate');
+  const authGateText = document.getElementById('auth-gate-text');
+
+  function grantAccess() {
+    authGate.classList.add('done');
+    const backLink = document.querySelector('a[href="../../../index.html"]');
+    if (backLink && !backLink.nextElementSibling?.classList.contains('sign-out-btn')) {
+      const signOut = document.createElement('button');
+      signOut.type = 'button';
+      signOut.className = 'sign-out-btn';
+      signOut.textContent = 'Sign out';
+      signOut.onclick = () => msalInstance.logoutRedirect();
+      backLink.insertAdjacentElement('afterend', signOut);
+    }
+  }
+
+  (async () => {
+    try {
+      await msalInstance.initialize();
+      const account = msalInstance.getAllAccounts()[0];
+      if (!account) {
+        authGateText.textContent = 'Redirecting to Microsoft sign-in…';
+        window.location.href = '../../../index.html?returnTo=' + encodeURIComponent(window.location.href);
+        return;
+      }
+      msalInstance.setActiveAccount(account);
+      grantAccess();
+    } catch (err) {
+      console.error('[Auth]', err);
+      authGate.classList.add('denied');
+      authGateText.textContent = 'Access denied. This tool is restricted to APM Terminals Mobile staff.';
+    }
+  })();
+})();
+</script>
 
 <header class="topbar">
   <img class="logo" id="brandLogo" alt="APM Terminals">
